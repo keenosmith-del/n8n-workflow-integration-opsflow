@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "executionId",
+    "requestId",
+    "attempt",
+    "amountCents",
+    "department",
+    "scenario",
+    "correlationId"
+  ],
+  "properties": {
+    "executionId": {
+      "type": "string",
+      "minLength": 8
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 8
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "amountCents": {
+      "type": "integer",
+      "minimum": 100,
+      "maximum": 100000000
+    },
+    "department": {
+      "enum": ["IT", "OPERATIONS"]
+    },
+    "scenario": {
+      "enum": ["normal", "finance_failure", "supplier_failure", "missing_quotes", "timeout"]
+    },
+    "correlationId": {
+      "type": "string",
+      "minLength": 8
+    }
+  }
+}

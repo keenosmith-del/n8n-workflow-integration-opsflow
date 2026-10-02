@@ -1,0 +1,179 @@
+generator client {
+ provider = "prisma-client-js"
+}
+datasource db {
+ provider = "postgresql"
+ url = env("DATABASE_URL")
+}
+enum Role {
+ EMPLOYEE
+ MANAGER
+ ADMIN
+}
+enum RequestStatus {
+ QUEUED
+ AWAITING_APPROVAL
+ APPROVED
+ REJECTED
+ COMPLETED
+ INSUFFICIENT_BUDGET
+ FAILED
+ TIMED_OUT
+}
+model User {
+ id String @id @default(uuid()) @db.Uuid
+ email String @unique
+ name String
+ passwordHash String
+ role Role
+ requests ProcurementRequest[]
+ approvals Approval[]
+}
+model Budget {
+ department String @id
+ limitCents Int
+ reservedCents Int @default(0)
+ spentCents Int @default(0)
+ requests ProcurementRequest[]
+}
+model WorkflowDefinition {
+ id String @id @default(uuid()) @db.Uuid
+ version Int @unique
+ template String
+ config Json
+ createdAt DateTime @default(now())
+ executions Execution[]
+}
+model ProcurementRequest {
+ id String @id @default(uuid()) @db.Uuid
+ title String
+ justification String
+ amountCents Int
+ department String
+ budget Budget @relation(fields:[department],references:[department])
+ employeeId String @db.Uuid
+ employee User @relation(fields:[employeeId],references:[id])
+ status RequestStatus @default(QUEUED)
+ scenario String @default("normal")
+ reservedCents Int @default(0)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ execution Execution?
+ quotations Quotation[]
+ approval Approval?
+ purchaseOrder PurchaseOrder?
+ audits AuditEvent[]
+ @@index([status,createdAt])
+}
+model Execution {
+ id String @id @default(uuid()) @db.Uuid
+ requestId String @unique @db.Uuid
+ request ProcurementRequest @relation(fields:[requestId],references:[id])
+ definitionId String @db.Uuid
+ definition WorkflowDefinition @relation(fields:[definitionId],references:[id])
+ correlationId String @unique
+ status String @default("QUEUED")
+ phase String @default("COLLECT")
+ attempt Int @default(1)
+ callbackKey String
+ deadline DateTime
+ error String?
+ n8nExecutionId String?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ callbacks CallbackReceipt[]
+ exceptions ExceptionRecord[]
+ @@index([status,deadline])
+}
+model Supplier {
+ id String @id
+ name String
+ quotations Quotation[]
+ orders PurchaseOrder[]
+}
+model Quotation {
+ id String @id @default(uuid()) @db.Uuid
+ requestId String @db.Uuid
+ request ProcurementRequest @relation(fields:[requestId],references:[id])
+ supplierId String
+ supplier Supplier @relation(fields:[supplierId],references:[id])
+ reference String
+ amountCents Int
+ deliveryDays Int
+ attempt Int
+ createdAt DateTime @default(now())
+ @@unique([requestId,supplierId,attempt])
+}
+model Approval {
+ id String @id @default(uuid()) @db.Uuid
+ requestId String @unique @db.Uuid
+ request ProcurementRequest @relation(fields:[requestId],references:[id])
+ managerId String @db.Uuid
+ manager User @relation(fields:[managerId],references:[id])
+ decision String?
+ comment String?
+ decidedAt DateTime?
+ dueAt DateTime
+}
+model PurchaseOrder {
+ id String @id @default(uuid()) @db.Uuid
+ number String @unique
+ requestId String @unique @db.Uuid
+ request ProcurementRequest @relation(fields:[requestId],references:[id])
+ supplierId String
+ supplier Supplier @relation(fields:[supplierId],references:[id])
+ amountCents Int
+ createdAt DateTime @default(now())
+}
+model AuditEvent {
+ id String @id @default(uuid()) @db.Uuid
+ requestId String? @db.Uuid
+ request ProcurementRequest? @relation(fields:[requestId],references:[id])
+ actorId String
+ action String
+ correlationId String
+ data Json
+ createdAt DateTime @default(now())
+ @@index([requestId,createdAt])
+}
+model OutboxEvent {
+ id String @id @default(uuid()) @db.Uuid
+ executionId String @db.Uuid
+ attempt Int
+ phase String
+ payload Json
+ publishedAt DateTime?
+ createdAt DateTime @default(now())
+ @@unique([executionId,attempt,phase])
+ @@index([publishedAt,createdAt])
+}
+model InboxReceipt {
+ id String @id @db.Uuid
+ receivedAt DateTime @default(now())
+}
+model CallbackReceipt {
+ id String @id @default(uuid()) @db.Uuid
+ executionId String @db.Uuid
+ execution Execution @relation(fields:[executionId],references:[id])
+ attempt Int
+ phase String
+ receivedAt DateTime @default(now())
+ @@unique([executionId,attempt,phase])
+}
+model ExceptionRecord {
+ id String @id @default(uuid()) @db.Uuid
+ executionId String @db.Uuid
+ execution Execution @relation(fields:[executionId],references:[id])
+ attempt Int
+ reason String
+ resolvedAt DateTime?
+ createdAt DateTime @default(now())
+}
+model IntegrationConfig {
+ name String @id
+ authType String
+ encryptedSecret String
+ clientId String?
+ enabled Boolean @default(true)
+ updatedAt DateTime @updatedAt
+}

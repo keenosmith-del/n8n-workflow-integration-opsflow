@@ -1,0 +1,239 @@
+{
+  "id": "opsflow-collect-v1",
+  "name": "OpsFlow procurement collection v1",
+  "active": false,
+  "nodes": [
+    {
+      "id": "64fdae49-8534-4211-9c12-af678aa3e660",
+      "name": "Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "procurement-collect-v1",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "opsflow-collect-v1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "opsflow-webhook-auth",
+          "name": "OpsFlow webhook authentication"
+        }
+      }
+    },
+    {
+      "id": "09f67feb-efb9-4b29-85ab-eb647336328c",
+      "name": "Finance credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        200
+      ],
+      "parameters": {
+        "url": "http://api:3000/api/internal/credentials/finance",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify({\"x-workflow-token\": $env.WORKFLOW_TOKEN, \"x-correlation-id\": $(\"Event\").first().json.body.correlationId}) }}"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "40e44266-356c-4c09-9bf4-d69ed53a4f71",
+      "name": "Finance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "url": "http://simulators:4000/finance/check",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(((b) => ({executionId:b.executionId,requestId:b.requestId,attempt:b.attempt,amountCents:b.amountCents,department:b.department,scenario:b.scenario,correlationId:b.correlationId}))($(\"Event\").first().json.body)) }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify($(\"Finance credentials\").first().json.body?.headers || {}) }}"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "6084d235-2ae7-416f-ad5d-af9fd05da5a5",
+      "name": "Supplier credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        200
+      ],
+      "parameters": {
+        "url": "http://api:3000/api/internal/credentials/suppliers",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify({\"x-workflow-token\": $env.WORKFLOW_TOKEN, \"x-correlation-id\": $(\"Event\").first().json.body.correlationId}) }}"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "efa79d14-31a0-4227-a676-eb6c90630ab0",
+      "name": "Suppliers",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        200
+      ],
+      "parameters": {
+        "url": "http://simulators:4000/suppliers/quotes",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(((b) => ({executionId:b.executionId,requestId:b.requestId,attempt:b.attempt,amountCents:b.amountCents,department:b.department,scenario:b.scenario,correlationId:b.correlationId}))($(\"Event\").first().json.body)) }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify($(\"Supplier credentials\").first().json.body?.headers || {}) }}"
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "1504a4f4-666f-4435-baf9-016bd44a3dd7",
+      "name": "Persist results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "url": "http://api:3000/api/internal/callback",
+        "options": {
+          "timeout": 10000
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(((b,f,s) => ({executionId:b.executionId,attempt:b.attempt,callbackKey:b.callbackKey,phase:\"COLLECT\",financeOk:f.body?.ok === true,quotes:s.body?.quotes || [],error:f.error ? \"Finance HTTP timeout or connection failure\" : (f.statusCode>=400 ? (f.body?.error || \"Finance HTTP failure\") : (s.error ? \"Supplier HTTP timeout or connection failure\" : (s.statusCode>=400 ? (s.body?.error || \"Supplier HTTP failure\") : undefined))),n8nExecutionId:$execution.id}))($(\"Event\").first().json.body,$(\"Finance\").first().json,$(\"Suppliers\").first().json)) }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify({\"x-workflow-token\": $env.WORKFLOW_TOKEN, \"x-correlation-id\": $(\"Event\").first().json.body.correlationId}) }}"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Event": {
+      "main": [
+        [
+          {
+            "node": "Finance credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finance credentials": {
+      "main": [
+        [
+          {
+            "node": "Finance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finance": {
+      "main": [
+        [
+          {
+            "node": "Supplier credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supplier credentials": {
+      "main": [
+        [
+          {
+            "node": "Suppliers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Suppliers": {
+      "main": [
+        [
+          {
+            "node": "Persist results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveExecutionProgress": false,
+    "executionTimeout": 60
+  },
+  "versionId": "289c5fc0-540d-423d-859d-4ff38821b389",
+  "pinData": {}
+}

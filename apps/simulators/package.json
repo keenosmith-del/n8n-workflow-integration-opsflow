@@ -1,0 +1,23 @@
+{
+  "name": "@opsflow/simulators",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "ajv": "^8.17.1",
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^9.14.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "tsx": "^4.20.6",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.18.0",
+    "@types/jsonwebtoken": "^9.0.10"
+  }
+}

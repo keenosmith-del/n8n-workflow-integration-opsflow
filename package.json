@@ -1,0 +1,24 @@
+{
+  "name": "opsflow",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @opsflow/contracts && npm run build -w @opsflow/api && npm run build -w @opsflow/simulators && npm run build -w @opsflow/web",
+    "dev:api": "npm run dev -w @opsflow/api",
+    "dev:web": "npm run dev -w @opsflow/web",
+    "db:generate": "npm run generate -w @opsflow/api",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "deepmerge-ts": "^8.0.0",
+    "effect": "^3.20.0",
+    "js-yaml": "^5.4.2"
+  },
+  "version": "1.0.0"
+}

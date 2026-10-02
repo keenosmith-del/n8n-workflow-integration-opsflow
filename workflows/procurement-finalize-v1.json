@@ -1,0 +1,79 @@
+{
+  "id": "opsflow-finalize-v1",
+  "name": "OpsFlow procurement finalization v1",
+  "active": false,
+  "nodes": [
+    {
+      "id": "06c441cf-90d0-4dd6-b8c0-51f4d0af7987",
+      "name": "Event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "procurement-finalize-v1",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "opsflow-finalize-v1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "opsflow-webhook-auth",
+          "name": "OpsFlow webhook authentication"
+        }
+      }
+    },
+    {
+      "id": "b36a795d-e382-41ce-97e4-f4a304e82432",
+      "name": "Create purchase order",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        250,
+        200
+      ],
+      "parameters": {
+        "url": "http://api:3000/api/internal/callback",
+        "options": {
+          "timeout": 10000
+        },
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(((b)=>({executionId:b.executionId,attempt:b.attempt,callbackKey:b.callbackKey,phase:\"FINALIZE\",n8nExecutionId:$execution.id}))($json.body)) }}",
+        "sendHeaders": true,
+        "specifyHeaders": "json",
+        "jsonHeaders": "={{ JSON.stringify({\"x-workflow-token\": $env.WORKFLOW_TOKEN, \"x-correlation-id\": $(\"Event\").first().json.body.correlationId}) }}"
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Event": {
+      "main": [
+        [
+          {
+            "node": "Create purchase order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "none",
+    "saveDataSuccessExecution": "none",
+    "saveExecutionProgress": false,
+    "executionTimeout": 60
+  },
+  "versionId": "a9c24065-ce7f-4ab7-97a0-9849d9c298a3",
+  "pinData": {}
+}
